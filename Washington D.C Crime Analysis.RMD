@@ -1,0 +1,1643 @@
+---
+title: "Final Project STAT 612"
+author: "Dawoon (Kate) Jung & Yashovardhan Singh"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output: pdf_document
+geometry: margin = 1in
+fontsize: 12pt
+header-includes:
+    - \usepackage{setspace}\doublespacing
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r library, echo = FALSE, message=FALSE}
+library(tidyr)
+library(tidyverse)
+library(readr)
+library(dplyr)
+library(lubridate)
+library(maps)
+library(magrittr)
+library(dplyr)
+library(gridExtra)
+```
+
+```{r data_import(together), echo = FALSE, message=FALSE}
+# Import all the data into R 
+DC08 <- read_csv("Crime_Incidents_in_2008.csv", col_names = TRUE)
+DC09 <- read_csv("Crime_Incidents_in_2009.csv", col_names = TRUE)
+DC10 <- read_csv("Crime_Incidents_in_2010.csv", col_names = TRUE)
+DC11 <- read_csv("Crime_Incidents_in_2011.csv", col_names = TRUE)
+DC12 <- read_csv("Crime_Incidents_in_2012.csv", col_names = TRUE)
+DC13 <- read_csv("Crime_Incidents_in_2013.csv", col_names = TRUE)
+DC14 <- read_csv("Crime_Incidents_in_2014.csv", col_names = TRUE)
+DC15 <- read_csv("Crime_Incidents_in_2015.csv", col_names = TRUE)
+DC16 <- read_csv("Crime_Incidents_in_2016.csv", col_names = TRUE)
+DC17 <- read_csv("Crime_Incidents_in_2017.csv", col_names = TRUE)
+DC18 <- read_csv("Crime_Incidents_in_2018.csv", col_names = TRUE)
+DC19 <- read_csv("Crime_Incidents_in_2019.csv", col_names = TRUE)
+DC20 <- read_csv("Crime_Incidents_in_2020.csv", col_names = TRUE)
+
+# Explore the data
+# We use 'total_Crime' for the exploratory data analysis.
+# We use 'DC_Crime' for the time series
+total_Crime <- rbind(DC08, DC09, DC10, DC11, DC12, DC13, DC14, DC15, DC16, DC17, DC18, DC19, DC20)
+DC_Crime <- rbind(DC08, DC09, DC10, DC11, DC12, DC13, DC14, DC15, DC16, DC17, DC18, DC19)
+
+```
+
+## Introduction
+For our project we looked at Crime data in DC over the time period of 2008 - 2020. Our analysis includes looking at crime trend by type and over period of time through out the DC area. The purpose of our analysis was to check for any trends or patterns within the DC crime data. Identification of such trends would further allow us to identify root causes behind those trends or links to seasonal or one-time events. Our findings may help identify effective policing and crime prevention strategies and it may also allow for authorities to see what further can be done to curb crime rates.
+
+### Data Information 
+The source of Washington D.C.'s crime rate is the *District of Columbia Metropolitan Police Department*. According to their website, the dataset contains a subset of locations and attributes of incidents reported in the *ASAP (Analytical Services Application)* crime report database by the *District of Columbia Metropolitan Police Department (MPD)*.
+It has 25 variables, including 15 categorical variables and 10 quantitative variables. Each observation is identified by *CCN(Criminal Complaint Number)*. There are three different date and time data in this dataset. The report date is the date and time when the crime incident is reported to the police. The start date is the date and time the victim or reporter claimed it happened. When the crime is reported without it, the system records it as 01/01/1980. Lastly, there is the end date, which is the claimed date and time when the incident ends. The original data set was organized by the report date. However, we used the start date for our analysis by filtering them from 01/01/2008 ~ 11/20/2020.
+Also, there are 11 variables of a discrete method to distinguish the location, such as *block*, *neighborhood cluster, latitude, longitude, voting precinct,* and *WARD*. Throughout our analysis, we utilize several different variables of location. 
+
+##  Literature Review
+To understand crime data and trend we looked at two particular articles. The first article is by Ellen G Cohn and James Rotton titled Even criminals take a holiday: Instrumental and expressive crimes on major and minor holidays (Journal of Criminal Justice). Within this article the authors find that crime does have a correlation in cities with major holidays. On days of major holidays, violent crime spikes due to greater proximity and gathering of people for celebrations. Although there was no relation found between other types of crimes and minor holidays. 
+
+For the second article we looked at a paper by Paul Brunt, Rob Mawby, and Zoe Hambley on Tourist victimization and the fear of crime on holiday (Tourism Management). The results of this paper are that there is an increase in crime within a city with an increase in tourism. Through a case study the authors found that people are more likely to be victims of a crime as a tourist than when they are in their own hometown. Yet this higher number of crime incidents with tourists versus residents has yet to be addressed as a problem by local authorities of a region. Tourists are more likely to be victims of crimes, which acts as a deterrent to tourism business for a location. Yet it was found that authorities respond less to crime against tourists than to crimes against residents of a city. So a major portion of crime in a location with a heavy tourism industry seems to stem from crime against tourists rather than residents.
+Both of these articles help explain that 1) crimes and major holiday to have a connection, we should see a rise in the frequency of crime incidents in a city during major holidays. 2) In cities with a large amount of tourism, like DC, we should expect to see a lot of the crimes committed, be against tourists rather than against the residents of DC. 
+
+
+```{r, echo=FALSE, include=FALSE}
+# Putting dates in dataset in proper class to be able to analyze
+# Checking Class
+class(total_Crime$REPORT_DAT)
+class(total_Crime$START_DATE)
+class(total_Crime$END_DATE)
+
+# Changing the class of each of the date variables
+
+total_Crime %>%
+ mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+total_Crime
+
+
+DC08 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC08
+
+DC09 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC09
+
+DC10 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC10
+
+DC11 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC11
+
+DC12 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC12
+
+DC13 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC13
+
+DC14 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC14
+
+DC15 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC15
+
+DC16 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC16
+
+DC17 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC17
+
+DC18 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC18
+
+DC19 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC19
+
+DC20 %>%
+  mutate(REPORT_DAT = parse_datetime(REPORT_DAT, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(START_DATE = parse_datetime(START_DATE, format = "%Y/%m/%d %H:%M:%S+00")) %>%
+  mutate(END_DATE = parse_datetime(END_DATE, format = "%Y/%m/%d %H:%M:%S+00")) ->
+  DC20
+
+class(total_Crime$REPORT_DAT)
+class(total_Crime$START_DATE)
+class(total_Crime$END_DATE)
+
+# Dates are in preferred class
+
+```
+```{r, echo=FALSE, include=FALSE}
+#Separating out Year, Month, and Day and Time to analyze data by time frames
+total_Crime %>%
+  mutate(start_year = year(START_DATE),
+         start_month = month(START_DATE),
+         start_day = day(START_DATE),
+         start_hour = hour(START_DATE),
+         start_minute = minute(START_DATE),
+         start_second = second(START_DATE)) ->
+  total_Crime
+
+total_Crime %>%
+  mutate(report_year = year(REPORT_DAT),
+         report_month = month(REPORT_DAT),
+         report_day = day(REPORT_DAT),
+         report_hour = hour(REPORT_DAT),
+         report_minute = minute(REPORT_DAT),
+         report_seconds = second(REPORT_DAT)) %>%
+  mutate(end_year = year(END_DATE),
+         end_month = month(END_DATE),
+         end_day = day(END_DATE),
+         end_hour = hour(END_DATE),
+         end_minute = minute(END_DATE),
+         end_seconds = second(END_DATE)) ->
+  total_Crime
+
+#Cleaning up the neighborhood_cluster variables to include just the cluster number
+# Removing the word cluster from Neighborhood clusters to leave behind only the number
+total_Crime %>%
+  mutate(NEIGHBORHOOD_CLUSTER = parse_number(NEIGHBORHOOD_CLUSTER)) ->
+  total_Crime
+
+# Extracting only the precinct number
+total_Crime %>%
+  mutate(VOTING_PRECINCT = parse_number(VOTING_PRECINCT)) ->
+  total_Crime
+
+```
+## Initial Hypothesis
+For our initial hypotheses we wanted to look at three particular things:
+  1) Is there seasonality in the data (seasonality by months, years, seasons, or any other metric). We wanted to check if there was any pattern to crime data.
+  2) Since DC is a political center and capital of the United States, we wanted to see if there is any link between major civil rights or social movements and crime rates within the city.
+  3) Finally we also wanted to see if COVID affect the crimes rate in DC, and how this affect played out in crime data.
+
+  
+## Exploratory Data Analysis
+For our EDA we first looked at the number of crime incidents by OFFENSE type. There were a total of 9 major offense types in our dataset and we wanted to see how trends for these crimes pans out over the years from 2008 to 2020. 
+
+```{r, echo = FALSE, include=FALSE}
+# Look at how many Neighborhood Clusters there are in DC
+sort(unique(total_Crime$NEIGHBORHOOD_CLUSTER))
+
+# Look at how many Census Tracts are in DC
+sort(unique(total_Crime$CENSUS_TRACT))
+
+# See the shifts the DC police has working throughout the day.
+unique(total_Crime$SHIFT)
+
+# See how many unique districts there are with DC.
+sort(unique(total_Crime$DISTRICT))
+```
+```{r, echo=FALSE}
+# See how many types of offense are there in DC that the DC police keeps track of.
+unique(total_Crime$OFFENSE)
+
+```
+
+```{r, echo=FALSE, include=FALSE}
+# Looking at what years the crimes were committed that are reported in the dataset.
+sort(unique(total_Crime$start_year))
+
+# Looking at all the years that a crime was reported in within our dataset
+sort(unique(total_Crime$report_year))
+
+# Look at tables of data to see count of crimes by specific regions.
+# Number of Crimes by OFFENSE type
+table(total_Crime$OFFENSE)
+```
+```{r, echo=FALSE, include=FALSE}
+# Graph of crime count by OFFENSE type
+ggplot(data = total_Crime, mapping = aes(x = OFFENSE)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+```
+When we graphed out all the crimes by offense types over the years from 2008 - 2020 we saw that Theft and theft from auto were two of the largest categories of crimes. Those two crimes were the most frequent in DC. The large spike in Theft/Other in 2008 is due to the fact that the category Theft f/ auto had not been created till 2009. So Theft/other and Theft f/auto are both combined into one category in 2008. 
+
+```{r, echo = FALSE, include=FALSE}
+# Creating graphs to see trends in crime data year by year
+# 2008
+DC08 %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2009-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+# 2009
+DC09 %>%
+  filter(START_DATE >= "2009-01-01" & START_DATE <= "2010-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2010
+DC10 %>%
+  filter(START_DATE >= "2010-01-01" & START_DATE <= "2011-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2011
+DC11 %>%
+  filter(START_DATE >= "2011-01-01" & START_DATE <= "2012-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2012
+DC12 %>%
+  filter(START_DATE >= "2012-01-01" & START_DATE <= "2013-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2013
+DC13 %>%
+  filter(START_DATE >= "2013-01-01" & START_DATE <= "2014-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2014
+DC14 %>%
+  filter(START_DATE >= "2014-01-01" & START_DATE <= "2015-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2015
+DC15 %>%
+  filter(START_DATE >= "2015-01-01" & START_DATE <= "2016-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2016
+DC16 %>%
+  filter(START_DATE >= "2016-01-01" & START_DATE <= "2017-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2017
+DC17 %>%
+  filter(START_DATE >= "2017-01-01" & START_DATE <= "2018-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2018
+DC18 %>%
+  filter(START_DATE >= "2018-01-01" & START_DATE <= "2019-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+
+#2019
+DC19 %>%
+  filter(START_DATE >= "2019-01-01" & START_DATE <= "2020-01-01") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31)
+```
+
+```{r, echo=FALSE, out.width='80%', fig.align='center'}
+
+# Total Crime distribution from 01/01/2008 - 11/20/2020
+total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Crime from 2008 - 2020 in DC", x = "Years", y = "Number of crime incidents")
+
+```
+
+One particularly interesting this we found was that there was a odd spike in burglary around May of 2020. When we looked deeper at event or causes for this crime spike in DC we found that this spike was due to 3 days of violent protests in DC for the murder of George Floyd. 
+```{r, echo=FALSE, out.width='80%', fig.align='center'}
+#2020 Up until November 20th
+DC20 %>%
+  filter(START_DATE >= "2020-01-01" & START_DATE <= "2020-11-20") %>%
+  ggplot(aes(x = START_DATE, group = OFFENSE, color = OFFENSE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="All Crime in 2020 in DC", x = "Month", y = "Number of crime incidents")
+
+
+```
+
+```{r, echo=FALSE, include=FALSE}
+# Looking at the trend of Theft from 2008 - 2020
+g1 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "THEFT/OTHER") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Theft 2008 - 2020", x = "Years", y = "Number of crime incidents")
+
+# Looking at the trend of assault w/ dangerous weapon from 2008 - 2020
+g2 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "ASSAULT W/DANGEROUS WEAPON") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Assaults 2008 - 2020", x = "Years", y = "Number of crime incidents")
+
+```
+Another thing we discovered during our EDA was this upside down U trend in Sex Abuse. When we researched why this trend could be taking place we found that the "Me Too" movement began around 2006 and was at its height in 2017 and 2017 when time magazine did a cover story on the movement. That movement coincides with greater sex abuse crimes being reported with the apex of crimes reported around 2016 and 2017, coinciding with the height of the "Me Too" movement. This is one place where we see national movements having a direct result in crime rate within DC.
+```{r, echo=FALSE, out.width='60%', fig.align='center'}
+# Looking at the trend of Sex Abuse from 2008 - 2020
+g3 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "SEX ABUSE") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Sex Abuse 2008 - 2020", x = "Years", y = "Number of crime incidents")
+g3
+
+```
+
+```{r, echo=FALSE, include = FALSE}
+# Looking at the trend of Burglary from 2008 - 2020
+g4 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "BURGLARY") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Burglary 2008 - 2020", x = "Years", y = "# of Crime")
+
+# Looking at the trend of Homicide from 2008 - 2020
+g5 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "HOMICIDE") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Homicides 2008 - 2020", x = "Years", y = "# of Crime")
+
+# Looking at the trend of Arson from 2008 - 2020
+g6 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "ARSON") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Arson 2008 - 2020", x = "Years", y = "# of Crime")
+
+# Looking at the trend of Robbery from 2008 - 2020
+g7 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "ROBBERY") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Robbery 2008 - 2020", x = "Years", y = "# of Crime")
+
+# Looking at the trend of Theft f/ auto from 2008 - 2020
+g8 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "THEFT F/AUTO") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Theft 2008 - 2020", x = "Years", y = "# of Crime")
+
+# Looking at the trend of Motor Vehicle Theft from 2008 - 2020
+g9 <- total_Crime %>%
+  filter(START_DATE >= "2008-01-01" & START_DATE <= "2020-11-20") %>%
+  filter(OFFENSE == "MOTOR VEHICLE THEFT") %>%
+  ggplot(aes(x = START_DATE))+
+  geom_freqpoly(bins = 31) +
+  labs(title ="Motor Vehicle Theft 2008 - 2020", x = "Years", y = "# of Crime")
+```
+Here is a look at all the crime data over the years show by individual offense types. 
+```{r, echo=FALSE, out.width='90%', fig.align='center'}
+grid.arrange(g1,g2,g3,g4,g5,g6,g7,g8,g9, nrow = 3)
+
+```
+A trend we wanted to compare crime rates to was economic activity. So we looked at the S&P 500's price data and compared
+that with out crime trends to see if we see any commonalities of similar patterns. One thing to note with this comparison was during every election season the stock market prices either stagnated or dipped. During these same times there was a general rise in crimes in DC. This is true for 2008, 2012, 2016 and 2020. 
+```{r, echo=FALSE, message=FALSE, out.width='50%', fig.align='center'}
+
+# Bringing in Market data to compare trends between economic activity and crime
+market_data <- read_csv("S&P500_daily_2008_2020.csv")
+
+# Changing class of Date in order to use as continuous variable
+market_data %>%
+  mutate(Date = parse_date(Date, format = "%m/%d/%Y")) ->
+  market_data
+
+# Looking at Price trend in S&P 500 from 2008 to Nov. 20th 2020
+market_data %>%
+  ggplot(aes(x = Date, y = `Adj Close`)) +
+  geom_line() +
+  labs(title ="Stock Price for S&P 500 from 2008 - 2020")
+
+```
+
+```{r, echo = FALSE, include=FALSE}
+# Number of Crimes in each Neighborhood cluster over the 12 years.
+sort(table(total_Crime$NEIGHBORHOOD_CLUSTER))
+total_Crime %>%
+  ggplot(aes(x = NEIGHBORHOOD_CLUSTER)) +
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+# Looking at total crime by district
+sort(table(total_Crime$DISTRICT))
+
+# Looking at the trend in crime by district overall and then year by year
+total_Crime %>%
+  ggplot(aes(x = DISTRICT)) +
+  geom_bar()
+
+total_Crime %>%
+  ggplot(aes(x = DISTRICT)) +
+  geom_bar() +
+  facet_wrap(~ report_year)
+
+# Number of crimes each year
+sort(table(total_Crime$report_year), decreasing = TRUE)
+total_Crime %>%
+  ggplot(aes(x = report_year)) +
+  geom_bar() +
+  facet_wrap(~ OFFENSE)
+
+```
+Finally we also looked at a variable we created called "Wait Time" This is the time between a crime happening and it being reported to authorities. When we look at the trends for Wait Time we see that theft has had the greatest wait time but the trend in that has steadily been decreasing. On the other hand sex abuse has had a short wait time comparatively but was high around 2008 - 2010 and then again in 2016.
+```{r, echo=FALSE}
+# Creating duration for time taken between a crime occurring and it being reported
+total_Crime %>%
+  filter(start_year >= "2008" & start_year <= "2020") %>%
+  mutate(wait_time = as.duration(REPORT_DAT - START_DATE))%>%
+  filter(wait_time >= "0s")->
+  Reporting_lag
+
+# Looking at the wait time in reporting a crime year by year.
+Reporting_lag %>%
+  ggplot(aes(x = start_year, y = wait_time)) +
+  geom_col() +
+  facet_wrap(~ OFFENSE) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  labs(title = "Wait Time for Reporting Crime")
+
+```
+
+## Data-driven Hypotheses  
+One of our data-driven hypotheses was what other movements or national events could we find that link to our crime data, similar to how the sex abuse trend seems to follow the same timeline as the “Me Too” movement. Furthermore, we saw that one-off incidents such as the George Floyd protests cause outlier crime events such as burglaries in May of 2020.  
+
+
+
+## Time Series
+In order to find the trend or seasonality and forecast the crime rate in Washington D.C., the time series is selected.
+Before proceeding with the time series, we divided Washington D.C. into quadrants by extracting them from the block column. Referring to the District of Colombia metropolitan police department, crimes can be distinguished into two different groups; violent and property crime. Homicide, Sex Abuse, Assault with Dangerous Weapon and Robbery are in violent crime groups, burglary, theft from automobile, other theft, motor vehicle theft, and arson is property crime. 
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+DC_Crime <- DC_Crime %>%
+  mutate(start_year = year(START_DATE),
+         start_month = month(START_DATE),
+         start_day = wday(START_DATE, label = TRUE),
+         end_year = year(END_DATE),
+         end_month = month(END_DATE),
+         end_day = wday(END_DATE, label = TRUE),
+         report_year = year(REPORT_DAT),
+         report_month = month(REPORT_DAT),
+         report_day = wday(REPORT_DAT, label = TRUE)
+  )
+
+# Add a new column "offense_category" that categorizes each offense into its proper category: Violent Crime or Property Crime
+DC_Crime <- DC_Crime %>%
+  mutate(OFFENSE_CATEGORY = if_else(OFFENSE == "ASSAULT W/DANGEROUS WEAPON" | 
+                                      OFFENSE == "HOMICIDE" | 
+                                      OFFENSE == "ROBBERY" | 
+                                      OFFENSE == "SEX ABUSE", "VIOLENT",
+                                    if_else(OFFENSE == "ARSON" | 
+                                              OFFENSE == "BURGLARY" | 
+                                              OFFENSE == "MOTOR VEHICLE THEFT" | 
+                                              OFFENSE == "THEFT F/AUTO" | 
+                                              OFFENSE == "THEFT/OTHER", "PROPERTY", NA_character_)), .after = OFFENSE)
+
+# Add a new column "QUADRANT" that extracts the quadrant (NW/NE/SW/SE) from the block
+DC_Crime <- DC_Crime %>% 
+  mutate(QUADRANT = str_extract(BLOCK, "\\w+$"), .after = BLOCK)
+
+```
+
+
+```{r ,echo=FALSE, message=FALSE}
+
+# Time Series
+# To use the time series, we need to modify the data into format that R can convert into a time series object
+DC_Violent <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent <- DC_Violent %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent <- DC_Violent %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent <- DC_Violent[-145,]
+
+
+DC_Property <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property <- DC_Property %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property <- DC_Property %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Property <- DC_Property[-145,]
+```
+
+```{r ,echo=FALSE, message=FALSE}
+
+# Times Series by Quadrants
+# Violent NW
+DC_Violent_NW <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT" & QUADRANT == "NW") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_NW <- DC_Violent_NW %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_NW <- DC_Violent_NW %>%
+  select(number) %>%
+  drop_na(number)
+
+# Violent NE
+DC_Violent_NE <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT" & QUADRANT == "NE") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_NE <- DC_Violent_NE %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_NE <- DC_Violent_NE %>%
+  select(number) %>%
+  drop_na(number)
+
+# Violent SW
+DC_Violent_SW <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT" & QUADRANT == "SW") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_SW <- DC_Violent_SW %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_SW <- DC_Violent_SW %>%
+  select(number) %>%
+  drop_na(number)
+DC_Violent_SW <- DC_Violent_SW[-145,]
+
+# Violent SE
+DC_Violent_SE <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT" & QUADRANT == "SE") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_SE <- DC_Violent_SE %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_SE <- DC_Violent_SE %>%
+  select(number) %>%
+  drop_na(number)
+
+# Property NW
+DC_Property_NW <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY" & QUADRANT == "NW") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property_NW <- DC_Property_NW %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property_NW <- DC_Property_NW %>%
+  select(number) %>%
+  drop_na(number)
+DC_Property_NW <- DC_Property_NW[-145,]
+
+# Property NE
+DC_Property_NE <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY" & QUADRANT == "NE") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property_NE <- DC_Property_NE %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property_NE <- DC_Property_NE %>%
+  select(number) %>%
+  drop_na(number)
+
+# Property SW
+DC_Property_SW <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY" & QUADRANT == "SW") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property_SW <- DC_Property_SW %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property_SW <- DC_Property_SW %>%
+  select(number) %>%
+  drop_na(number)
+
+# Property SE
+DC_Property_SE <- DC_Crime %>%
+  select(start_month, start_year, OFFENSE_CATEGORY, QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY" & QUADRANT == "SE") %>%
+  filter(start_year >= "2008") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property_SE <- DC_Property_SE %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property_SE <- DC_Property_SE %>%
+  select(number) %>%
+  drop_na(number)
+
+
+```
+
+### Exponential Smoothing
+Exponential smoothing is a rigorous and accurate time series forecasting method for univariate data. There are three different types in this model: single exponential smoothing (SES), double exponential smoothing (DES), and Holt-Winters. The single exponential model is for univariate data without trend or seasonality, and the double exponential model is an extension that explicitly adds support for trend in the univariate time series. Lastly, the Holt-Winters model captures the support of both trend and seasonality.
+```{r ts, echo=FALSE, message=FALSE, include=FALSE}
+
+# Create Time Series for each crime type
+par(mfrow = c(1, 1))
+DC_Violent.ts <- ts(DC_Violent, start=2008, freq=12)
+plot(DC_Violent.ts, main="Times Series: DC Violent Crimes")
+
+DC_Property.ts <- ts(DC_Property, start=2008, freq=12)
+plot(DC_Property.ts, main="Time Series: DC Property Crimes")
+
+# Violent Time Series by Quadrants
+par(mfrow = c(2, 2)) # Create a 2x2 grid to display the plots side-by-side
+DC_Violent_NW.ts <- ts(DC_Violent_NW, start=2008, freq=12)
+plot(DC_Violent_NW.ts, main="Times Series: DC Violent Crimes in NW")
+
+DC_Violent_NE.ts <- ts(DC_Violent_NE, start=2008, freq=12)
+plot(DC_Violent_NE.ts, main="Times Series: DC Violent Crimes in NE")
+
+DC_Violent_SW.ts <- ts(DC_Violent_SW, start=2008, freq=12)
+plot(DC_Violent_SW.ts, main="Times Series: DC Violent Crimes in SW")
+
+DC_Violent_SE.ts <- ts(DC_Violent_SE, start=2008, freq=12)
+plot(DC_Violent_SE.ts, main="Times Series: DC Violent Crimes in SE")
+
+
+# Property Time Series by Quadrants
+par(mfrow = c(2, 2)) # Create a 2x2 grid to display the plots side-by-side
+DC_Property_NW.ts <- ts(DC_Property_NW, start=2008, freq=12)
+plot(DC_Property_NW.ts, main="Times Series: DC Property Crimes in NW")
+
+DC_Property_NE.ts <- ts(DC_Property_NE, start=2008, freq=12)
+plot(DC_Property_NE.ts, main="Times Series: DC Property Crimes in NE")
+
+DC_Property_SW.ts <- ts(DC_Property_SW, start=2008, freq=12)
+plot(DC_Property_SW.ts, main="Times Series: DC Property Crimes in SW")
+
+DC_Property_SE.ts <- ts(DC_Property_SE, start=2008, freq=12)
+plot(DC_Property_SE.ts, main="Times Series: DC Property Crimes in SE")
+
+```
+
+### Partitioning
+To avoid the over-fitting problem, partitioning can be considered as a solution. With partitioning, we ignored the most recent data when fitting the model. Then, we applied each model to predict the recent data points as if they were new. We have a total of twelve years (144 months) of data, so we took the first seven years (84 months) as the training set and used the last five years (60 months) as the validation set.  
+
+**Model**|  **Violent** |  **Property**   
+---------|--------------|-------------
+ **SES** |  3111.15 |  65317.40
+ **DES** |  3561.36 |  66680.91
+ **HW**  |  2068.34 |  35706.87
+
+
+Each prediction has an error associated with it called Mean Squared Error (MSE). Choosing the model that has the lowest MSE is reasonable, therefore we chose Holt-Winters model.
+```{r partitioning, echo=FALSE, message=FALSE, include=FALSE}
+
+# Partition to see which Time Series model to use
+
+#partitioning: DC_violent 
+train.periods <- 84
+test.periods <- 60
+cycle <- 12
+DC_Violent.ts.training <- ts(DC_Violent.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Violent.ts.training.SESmodel <- HoltWinters(DC_Violent.ts.training, beta=FALSE, gamma=FALSE)
+DC_Violent.ts.training.DESmodel <- HoltWinters(DC_Violent.ts.training, gamma=FALSE)
+DC_Violent.ts.training.HWmodel <- HoltWinters(DC_Violent.ts.training)
+
+
+DC_Violent.ts.SESmodel <- HoltWinters(DC_Violent.ts, alpha=DC_Violent.ts.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Violent.ts.DESmodel <- HoltWinters(DC_Violent.ts, alpha=DC_Violent.ts.training.DESmodel$alpha, beta=DC_Violent.ts.training.DESmodel$beta, gamma=FALSE)
+DC_Violent.ts.HWmodel <- HoltWinters(DC_Violent.ts, alpha=DC_Violent.ts.training.HWmodel$alpha, beta=DC_Violent.ts.training.HWmodel$beta, gamma=DC_Violent.ts.training.HWmodel$gamma)
+
+DC_Violent.ts.SESmodel
+DC_Violent.ts.DESmodel
+DC_Violent.ts.HWmodel
+
+DC_Violent.ts.SESmodel$SSE / nrow(DC_Violent.ts.SESmodel$fitted)  
+DC_Violent.ts.DESmodel$SSE / nrow(DC_Violent.ts.DESmodel$fitted)
+DC_Violent.ts.HWmodel$SSE / nrow(DC_Violent.ts.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Violent.ts.SESmodel$fitted[fit.start:fit.end] - DC_Violent.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Violent.ts.DESmodel$fitted[fit.start:fit.end] - DC_Violent.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Violent.ts.HWmodel$fitted[fit.start:fit.end] - DC_Violent.ts[data.start:data.end])^2) / (test.periods)
+```
+
+
+
+```{r, echo=FALSE, message = FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Violent Crime in DC")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+```
+
+```{r, echo=FALSE, message=FALSE, include = FALSE}
+
+#partitioning: DC_property
+
+DC_Property.ts.training <- ts(DC_Property.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Property.ts.training.SESmodel <- HoltWinters(DC_Property.ts.training, beta=FALSE, gamma=FALSE)
+DC_Property.ts.training.DESmodel <- HoltWinters(DC_Property.ts.training, gamma=FALSE)
+DC_Property.ts.training.HWmodel <- HoltWinters(DC_Property.ts.training)
+
+
+DC_Property.ts.SESmodel <- HoltWinters(DC_Property.ts, alpha=DC_Property.ts.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Property.ts.DESmodel <- HoltWinters(DC_Property.ts, alpha=DC_Property.ts.training.DESmodel$alpha, beta=DC_Property.ts.training.DESmodel$beta, gamma=FALSE)
+DC_Property.ts.HWmodel <- HoltWinters(DC_Property.ts, alpha=DC_Property.ts.training.HWmodel$alpha, beta=DC_Property.ts.training.HWmodel$beta, gamma=DC_Property.ts.training.HWmodel$gamma)
+
+# DC_Property.ts.SESmodel
+# DC_Property.ts.DESmodel
+# DC_Property.ts.HWmodel
+
+DC_Property.ts.SESmodel$SSE / nrow(DC_Property.ts.SESmodel$fitted)  
+DC_Property.ts.DESmodel$SSE / nrow(DC_Property.ts.DESmodel$fitted)
+DC_Property.ts.HWmodel$SSE / nrow(DC_Property.ts.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Property.ts.SESmodel$fitted[fit.start:fit.end] - DC_Property.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Property.ts.DESmodel$fitted[fit.start:fit.end] - DC_Property.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Property.ts.HWmodel$fitted[fit.start:fit.end] - DC_Property.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, message = FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Property Crime in DC")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+```
+
+
+
+```{r, echo=FALSE, message = FALSE, include=FALSE}
+
+#partitioning: DC_Violent_NW
+
+
+DC_Violent_NW.training <- ts(DC_Violent_NW.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Violent_NW.training.SESmodel <- HoltWinters(DC_Violent_NW.training , beta=FALSE, gamma=FALSE)
+DC_Violent_NW.training.DESmodel <- HoltWinters(DC_Violent_NW.training , gamma=FALSE)
+DC_Violent_NW.training.HWmodel <- HoltWinters(DC_Violent_NW.training )
+
+
+DC_Violent_NW.SESmodel <- HoltWinters(DC_Violent_NW.ts, alpha=DC_Violent_NW.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Violent_NW.DESmodel <- HoltWinters(DC_Violent_NW.ts, alpha=DC_Violent_NW.training.DESmodel$alpha, beta=DC_Violent_NW.training.DESmodel$beta, gamma=FALSE)
+DC_Violent_NW.HWmodel <- HoltWinters(DC_Violent_NW.ts, alpha=DC_Violent_NW.training.HWmodel$alpha, beta=DC_Violent_NW.training.HWmodel$beta, gamma=DC_Violent_NW.training.HWmodel$gamma)
+
+DC_Violent_NW.SESmodel
+DC_Violent_NW.DESmodel
+DC_Violent_NW.HWmodel
+
+DC_Violent_NW.SESmodel$SSE / nrow(DC_Violent_NW.SESmodel$fitted)  
+DC_Violent_NW.DESmodel$SSE / nrow(DC_Violent_NW.DESmodel$fitted)
+DC_Violent_NW.HWmodel$SSE / nrow(DC_Violent_NW.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Violent_NW.SESmodel$fitted[fit.start:fit.end] - DC_Violent_NW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Violent_NW.DESmodel$fitted[fit.start:fit.end] - DC_Violent_NW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Violent_NW.HWmodel$fitted[fit.start:fit.end] - DC_Violent_NW.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Violent Crime in DC-NW")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+#partitioning: DC_Violent_NE
+
+
+DC_Violent_NE.training <- ts(DC_Violent_NE.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Violent_NE.training.SESmodel <- HoltWinters(DC_Violent_NE.training , beta=FALSE, gamma=FALSE)
+DC_Violent_NE.training.DESmodel <- HoltWinters(DC_Violent_NE.training , gamma=FALSE)
+DC_Violent_NE.training.HWmodel <- HoltWinters(DC_Violent_NE.training )
+
+
+DC_Violent_NE.SESmodel <- HoltWinters(DC_Violent_NE.ts, alpha=DC_Violent_NE.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Violent_NE.DESmodel <- HoltWinters(DC_Violent_NE.ts, alpha=DC_Violent_NE.training.DESmodel$alpha, beta=DC_Violent_NE.training.DESmodel$beta, gamma=FALSE)
+DC_Violent_NE.HWmodel <- HoltWinters(DC_Violent_NE.ts, alpha=DC_Violent_NE.training.HWmodel$alpha, beta=DC_Violent_NE.training.HWmodel$beta, gamma=DC_Violent_NE.training.HWmodel$gamma)
+
+DC_Violent_NE.SESmodel
+DC_Violent_NE.DESmodel
+DC_Violent_NE.HWmodel
+
+DC_Violent_NE.SESmodel$SSE / nrow(DC_Violent_NE.SESmodel$fitted)  
+DC_Violent_NE.DESmodel$SSE / nrow(DC_Violent_NE.DESmodel$fitted)
+DC_Violent_NE.HWmodel$SSE / nrow(DC_Violent_NE.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Violent_NE.SESmodel$fitted[fit.start:fit.end] - DC_Violent_NE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Violent_NE.DESmodel$fitted[fit.start:fit.end] - DC_Violent_NE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Violent_NE.HWmodel$fitted[fit.start:fit.end] - DC_Violent_NE.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Violent Crime in DC-NE")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+```{r, echo = FALSE, message=FALSE, include=FALSE}
+
+#partitioning: DC_Violent_SE
+
+
+DC_Violent_SE.training <- ts(DC_Violent_SE.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Violent_SE.training.SESmodel <- HoltWinters(DC_Violent_SE.training , beta=FALSE, gamma=FALSE)
+DC_Violent_SE.training.DESmodel <- HoltWinters(DC_Violent_SE.training , gamma=FALSE)
+DC_Violent_SE.training.HWmodel <- HoltWinters(DC_Violent_SE.training )
+
+
+DC_Violent_SE.SESmodel <- HoltWinters(DC_Violent_SE.ts, alpha=DC_Violent_SE.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Violent_SE.DESmodel <- HoltWinters(DC_Violent_SE.ts, alpha=DC_Violent_SE.training.DESmodel$alpha, beta=DC_Violent_SE.training.DESmodel$beta, gamma=FALSE)
+DC_Violent_SE.HWmodel <- HoltWinters(DC_Violent_SE.ts, alpha=DC_Violent_SE.training.HWmodel$alpha, beta=DC_Violent_SE.training.HWmodel$beta, gamma=DC_Violent_SE.training.HWmodel$gamma)
+
+DC_Violent_SE.SESmodel
+DC_Violent_SE.DESmodel
+DC_Violent_SE.HWmodel
+
+DC_Violent_SE.SESmodel$SSE / nrow(DC_Violent_SE.SESmodel$fitted)  
+DC_Violent_SE.DESmodel$SSE / nrow(DC_Violent_SE.DESmodel$fitted)
+DC_Violent_SE.HWmodel$SSE / nrow(DC_Violent_SE.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Violent_SE.SESmodel$fitted[fit.start:fit.end] - DC_Violent_SE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Violent_SE.DESmodel$fitted[fit.start:fit.end] - DC_Violent_SE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Violent_SE.HWmodel$fitted[fit.start:fit.end] - DC_Violent_SE.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Violent Crime in DC-SE")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+
+```{r, echo=FALSE, include=FALSE, message=FALSE}
+
+#partitioning: DC_Violent_SW
+
+DC_Violent_SW.training <- ts(DC_Violent_SW.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Violent_SW.training.SESmodel <- HoltWinters(DC_Violent_SW.training , beta=FALSE, gamma=FALSE)
+DC_Violent_SW.training.DESmodel <- HoltWinters(DC_Violent_SW.training , gamma=FALSE)
+DC_Violent_SW.training.HWmodel <- HoltWinters(DC_Violent_SW.training )
+
+
+DC_Violent_SW.SESmodel <- HoltWinters(DC_Violent_SW.ts, alpha=DC_Violent_SW.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Violent_SW.DESmodel <- HoltWinters(DC_Violent_SW.ts, alpha=DC_Violent_SW.training.DESmodel$alpha, beta=DC_Violent_SW.training.DESmodel$beta, gamma=FALSE)
+DC_Violent_SW.HWmodel <- HoltWinters(DC_Violent_SW.ts, alpha=DC_Violent_SW.training.HWmodel$alpha, beta=DC_Violent_SW.training.HWmodel$beta, gamma=DC_Violent_SW.training.HWmodel$gamma)
+
+DC_Violent_SW.SESmodel
+DC_Violent_SW.DESmodel
+DC_Violent_SW.HWmodel
+
+
+plot(DC_Violent_SW.HWmodel, main="Holt Winters: DC Violent Crimes in SW")
+predict(DC_Violent_SW.HWmodel,12)
+write.csv(predict(DC_Violent_SW.HWmodel,12), file="DC_Violent_SW_Predictions.csv", row.names = FALSE)
+
+
+DC_Violent_SW.SESmodel$SSE / nrow(DC_Violent_SW.SESmodel$fitted)  
+DC_Violent_SW.DESmodel$SSE / nrow(DC_Violent_SW.DESmodel$fitted)
+DC_Violent_SW.HWmodel$SSE / nrow(DC_Violent_SW.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Violent_SW.SESmodel$fitted[fit.start:fit.end] - DC_Violent_SW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Violent_SW.DESmodel$fitted[fit.start:fit.end] - DC_Violent_SW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Violent_SW.HWmodel$fitted[fit.start:fit.end] - DC_Violent_SW.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Violent Crime in DC-SW")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+#Partitioning : DC_Property_NW
+
+DC_Property_NW.training <- ts(DC_Property_NW.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Property_NW.training.SESmodel <- HoltWinters(DC_Property_NW.training , beta=FALSE, gamma=FALSE)
+DC_Property_NW.training.DESmodel <- HoltWinters(DC_Property_NW.training , gamma=FALSE)
+DC_Property_NW.training.HWmodel <- HoltWinters(DC_Property_NW.training )
+
+
+DC_Property_NW.SESmodel <- HoltWinters(DC_Property_NW.ts, alpha=DC_Property_NW.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Property_NW.DESmodel <- HoltWinters(DC_Property_NW.ts, alpha=DC_Property_NW.training.DESmodel$alpha, beta=DC_Property_NW.training.DESmodel$beta, gamma=FALSE)
+DC_Property_NW.HWmodel <- HoltWinters(DC_Property_NW.ts, alpha=DC_Property_NW.training.HWmodel$alpha, beta=DC_Property_NW.training.HWmodel$beta, gamma=DC_Property_NW.training.HWmodel$gamma)
+
+DC_Property_NW.SESmodel
+DC_Property_NW.DESmodel
+DC_Property_NW.HWmodel
+
+DC_Property_NW.SESmodel$SSE / nrow(DC_Property_NW.SESmodel$fitted)  
+DC_Property_NW.DESmodel$SSE / nrow(DC_Property_NW.DESmodel$fitted)
+DC_Property_NW.HWmodel$SSE / nrow(DC_Property_NW.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Property_NW.SESmodel$fitted[fit.start:fit.end] - DC_Property_NW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Property_NW.DESmodel$fitted[fit.start:fit.end] - DC_Property_NW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Property_NW.HWmodel$fitted[fit.start:fit.end] - DC_Property_NW.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Property Crime in DC-NW")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+
+```{r, echo=FALSE, include=FALSE, message=FALSE}
+
+#Partitioning : DC_Property_NE
+
+
+DC_Property_NE.training <- ts(DC_Property_NE.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Property_NE.training.SESmodel <- HoltWinters(DC_Property_NE.training , beta=FALSE, gamma=FALSE)
+DC_Property_NE.training.DESmodel <- HoltWinters(DC_Property_NE.training , gamma=FALSE)
+DC_Property_NE.training.HWmodel <- HoltWinters(DC_Property_NE.training )
+
+
+DC_Property_NE.SESmodel <- HoltWinters(DC_Property_NE.ts, alpha=DC_Property_NE.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Property_NE.DESmodel <- HoltWinters(DC_Property_NE.ts, alpha=DC_Property_NE.training.DESmodel$alpha, beta=DC_Property_NE.training.DESmodel$beta, gamma=FALSE)
+DC_Property_NE.HWmodel <- HoltWinters(DC_Property_NE.ts, alpha=DC_Property_NE.training.HWmodel$alpha, beta=DC_Property_NE.training.HWmodel$beta, gamma=DC_Property_NE.training.HWmodel$gamma)
+
+DC_Property_NE.SESmodel
+DC_Property_NE.DESmodel
+DC_Property_NE.HWmodel
+
+DC_Property_NE.SESmodel$SSE / nrow(DC_Property_NE.SESmodel$fitted)  
+DC_Property_NE.DESmodel$SSE / nrow(DC_Property_NE.DESmodel$fitted)
+DC_Property_NE.HWmodel$SSE / nrow(DC_Property_NE.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Property_NE.SESmodel$fitted[fit.start:fit.end] - DC_Property_NE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Property_NE.DESmodel$fitted[fit.start:fit.end] - DC_Property_NE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Property_NE.HWmodel$fitted[fit.start:fit.end] - DC_Property_NE.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Property Crime in DC-NE")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+#Partitioning : DC_Property_SE
+
+DC_Property_SE.training <- ts(DC_Property_SE.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Property_SE.training.SESmodel <- HoltWinters(DC_Property_SE.training , beta=FALSE, gamma=FALSE)
+DC_Property_SE.training.DESmodel <- HoltWinters(DC_Property_SE.training , gamma=FALSE)
+DC_Property_SE.training.HWmodel <- HoltWinters(DC_Property_SE.training )
+
+
+DC_Property_SE.SESmodel <- HoltWinters(DC_Property_SE.ts, alpha=DC_Property_SE.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Property_SE.DESmodel <- HoltWinters(DC_Property_SE.ts, alpha=DC_Property_SE.training.DESmodel$alpha, beta=DC_Property_SE.training.DESmodel$beta, gamma=FALSE)
+DC_Property_SE.HWmodel <- HoltWinters(DC_Property_SE.ts, alpha=DC_Property_SE.training.HWmodel$alpha, beta=DC_Property_SE.training.HWmodel$beta, gamma=DC_Property_SE.training.HWmodel$gamma)
+
+DC_Property_SE.SESmodel
+DC_Property_SE.DESmodel
+DC_Property_SE.HWmodel
+
+DC_Property_SE.SESmodel$SSE / nrow(DC_Property_SE.SESmodel$fitted)  
+DC_Property_SE.DESmodel$SSE / nrow(DC_Property_SE.DESmodel$fitted)
+DC_Property_SE.HWmodel$SSE / nrow(DC_Property_SE.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Property_SE.SESmodel$fitted[fit.start:fit.end] - DC_Property_SE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Property_SE.DESmodel$fitted[fit.start:fit.end] - DC_Property_SE.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Property_SE.HWmodel$fitted[fit.start:fit.end] - DC_Property_SE.ts[data.start:data.end])^2) / (test.periods)
+```
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Property Crime in DC-SE")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+#Partitioning : DC_Property_SW
+
+DC_Property_SW.training <- ts(DC_Property_SW.ts[1:train.periods],start=2008,freq=cycle)
+
+DC_Property_SW.training.SESmodel <- HoltWinters(DC_Property_SW.training , beta=FALSE, gamma=FALSE)
+DC_Property_SW.training.DESmodel <- HoltWinters(DC_Property_SW.training , gamma=FALSE)
+DC_Property_SW.training.HWmodel <- HoltWinters(DC_Property_SW.training )
+
+
+DC_Property_SW.SESmodel <- HoltWinters(DC_Property_SW.ts, alpha=DC_Property_SW.training.SESmodel$alpha, beta=FALSE, gamma=FALSE)
+DC_Property_SW.DESmodel <- HoltWinters(DC_Property_SW.ts, alpha=DC_Property_SW.training.DESmodel$alpha, beta=DC_Property_SW.training.DESmodel$beta, gamma=FALSE)
+DC_Property_SW.HWmodel <- HoltWinters(DC_Property_SW.ts, alpha=DC_Property_SW.training.HWmodel$alpha, beta=DC_Property_SW.training.HWmodel$beta, gamma=DC_Property_SW.training.HWmodel$gamma)
+
+DC_Property_SW.SESmodel
+DC_Property_SW.DESmodel
+DC_Property_SW.HWmodel
+
+DC_Property_SW.SESmodel$SSE / nrow(DC_Property_SW.SESmodel$fitted)  
+DC_Property_SW.DESmodel$SSE / nrow(DC_Property_SW.DESmodel$fitted)
+DC_Property_SW.HWmodel$SSE / nrow(DC_Property_SW.HWmodel$fitted)
+
+
+
+# First, specify the starting & ending indices of the time series to use
+data.start <- train.periods + 1
+data.end <- train.periods + test.periods
+
+# Then, for each model, specify the starting & ending indices of the fitted values to use, and compute MSE
+
+fit.start <- train.periods # The fitted points for SES start in period 2, so we want to begin 1 row before the test set starting row number
+fit.end <- train.periods + test.periods - 1
+SES.MSE <- sum((DC_Property_SW.SESmodel$fitted[fit.start:fit.end] - DC_Property_SW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - 1 # The fitted points for DES start in period 3, so we want to begin 2 rows before the test set starting row number
+fit.end <- train.periods + test.periods - 2
+DES.MSE <- sum((DC_Property_SW.DESmodel$fitted[fit.start:fit.end] - DC_Property_SW.ts[data.start:data.end])^2) / (test.periods)
+
+fit.start <- train.periods - cycle + 1 # The fitted points in HW skip the first cycle, so we want to begin 1 cycle's worth of rows before the test set starting row number
+fit.end <- train.periods + test.periods - cycle
+HW.MSE <- sum((DC_Property_SW.HWmodel$fitted[fit.start:fit.end] - DC_Property_SW.ts[data.start:data.end])^2) / (test.periods)
+```
+
+
+```{r, echo=FALSE, include=FALSE}
+
+print("Mean Sqared Error of three exponential models - Property Crime in DC-SW")
+cat(paste("SES MSE =",SES.MSE,"\nDES MSE =",DES.MSE,"\nHW MSE =",HW.MSE))
+
+```
+
+
+### Graph of Time Series
+
+```{r, echo=FALSE, out.width = '80%', fig.align = 'center'}
+
+plot(DC_Violent.ts.HWmodel, main="Holt Winters: DC Violent Crimes")
+```
+The plot above is the holt-winters model plot of violent crimes in Washington D.C. The long-term trend shows a decline – the number of crime incidents have been decreasing substantially in the past three years. Also, there is seasonality – violent crime incidents increase rapidly in the summer season, then it decreases again until the end of the year. This pattern is repeated throughout the observing period. Our prediction fits well with the actual number of crime incidents.
+```{r, echo=FALSE, out.width = '80%', fig.align = 'center'}
+
+par(mfrow = c(2, 2))
+plot(DC_Violent_NE.HWmodel, main="Holt Winters: Violent Crimes in NE")
+
+plot(DC_Violent_SE.HWmodel, main="Holt Winters: Violent Crimes in SE")
+
+plot(DC_Violent_NW.HWmodel, main="Holt Winters: Violent Crimes in NW")
+
+plot(DC_Violent_SW.HWmodel, main="Holt Winters: Violent Crimes in SW")
+```
+
+These are the plots with the holt-winters model for different quadrants. The magnitude of the trend is slightly different, but we can see a similar seasonality.
+
+```{r, echo=FALSE, out.width = '80%', fig.align = 'center'}
+
+
+plot(DC_Property.ts.HWmodel, main="Holt Winters: DC Property Crimes")
+
+```
+This is the holt winters model plot of property crimes in Washington D.C. Contrastively to the violent crime incidents, we can notice an increment. We can also observe the seasonality – the number of property crime incidents goes up through the summer, and it decreases through the end of the winter season.
+
+
+```{r graphing, echo=FALSE, out.width = '80%', fig.align = 'center'}
+
+# We may want to forecast an entire set of periods, instead of only the next period
+
+
+par(mfrow = c(2, 2))
+plot(DC_Property_NE.HWmodel, main="Holt Winters: Property Crimes in NE")
+
+plot(DC_Property_SE.HWmodel, main="Holt Winters: Property Crimes in SE")
+
+plot(DC_Property_NW.HWmodel, main="Holt Winters: Property Crimes in NW")
+
+plot(DC_Property_SW.HWmodel, main="Holt Winters: Property Crimes in SW")
+
+
+```
+These are the plots for four different quadrants. We can clearly see the seasonality in all four quadrants.
+
+
+
+## Prediction
+
+```{r, echo=FALSE, message=FALSE, include=FALSE}
+
+## Parse Out Date
+DC20 <- read_csv("Crime_Incidents_in_2020.csv", col_names = TRUE)
+
+DC20$START_DATE <- parse_datetime(DC20$START_DATE, format = "%Y/%m/%d %H:%M:%S +00")
+DC20$REPORT_DAT <- parse_datetime(DC20$REPORT_DAT, format = "%Y/%m/%d %H:%M:%S +00")
+DC20$END_DATE <- parse_datetime(DC20$END_DATE, format = "%Y/%m/%d %H:%M:%S +00")
+
+DC20 <- DC20 %>%
+  mutate(start_year = year(START_DATE),
+         start_month = month(START_DATE),
+         start_day = wday(START_DATE, label = TRUE),
+         end_year = year(END_DATE),
+         end_month = month(END_DATE),
+         end_day = wday(END_DATE, label = TRUE),
+         report_year = year(REPORT_DAT),
+         report_month = month(REPORT_DAT),
+         report_day = wday(REPORT_DAT, label = TRUE)
+  )
+
+# Add a new column "offense_category" that categorizes each offense into its proper category: Violent Crime or Property Crime
+DC20 <- DC20 %>%
+  mutate(OFFENSE_CATEGORY = if_else(OFFENSE == "ASSAULT W/DANGEROUS WEAPON" | 
+                                      OFFENSE == "HOMICIDE" | 
+                                      OFFENSE == "ROBBERY" | 
+                                      OFFENSE == "SEX ABUSE", "VIOLENT",
+                                    if_else(OFFENSE == "ARSON" | 
+                                              OFFENSE == "BURGLARY" | 
+                                              OFFENSE == "MOTOR VEHICLE THEFT" | 
+                                              OFFENSE == "THEFT F/AUTO" | 
+                                              OFFENSE == "THEFT/OTHER", "PROPERTY", NA_character_)), .after = OFFENSE)
+
+# Add a new column "QUADRANT" that extracts the quadrant (NW/NE/SW/SE) from the block
+DC20 <- DC20 %>% 
+  mutate(QUADRANT = str_extract(BLOCK, "\\w+$"), .after = BLOCK)
+
+# Violent
+DC_Violent20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent20 <- DC_Violent20 %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent20 <- DC_Violent20 %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent20.ts <- ts(DC_Violent20, start=2020, freq=12)
+# plot(DC_Violent20.ts, main="Times Series: DC Violent Crimes in 2020")
+
+# Property
+DC_Property20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY) %>%
+  filter(OFFENSE_CATEGORY == "PROPERTY") %>%
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Property20 <- DC_Property20 %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Property20 <- DC_Property20 %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Property20.ts <- ts(DC_Property20, start=2020, freq=12)
+#plot(DC_Property20.ts, main="Times Series: DC Property Crimes in 2020")
+
+# Violent_NE
+DC_Violent_NE20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY,QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(QUADRANT == "NE") %>% 
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_NE20  <- DC_Violent_NE20  %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_NE20  <- DC_Violent_NE20  %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent_NE20.ts <- ts(DC_Violent_NE20 , start=2020, freq=12)
+#plot(DC_Violent_NE20.ts, main="Times Series: DC Violent NE Crimes in 2020")
+
+#Violent_SE
+DC_Violent_SE20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY,QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(QUADRANT == "SE") %>% 
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_SE20  <- DC_Violent_SE20  %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_SE20  <-DC_Violent_SE20 %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent_SE20.ts <- ts(DC_Violent_SE20 , start=2020, freq=12)
+#plot(DC_Violent_SE20.ts, main="Times Series: DC Violent SE Crimes in 2020")
+
+#Violent_NW
+DC_Violent_NW20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY,QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(QUADRANT == "NW") %>% 
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_NW20  <- DC_Violent_NW20  %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_NW20  <-DC_Violent_NW20 %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent_NW20.ts <- ts(DC_Violent_NW20 , start=2020, freq=12)
+#plot(DC_Violent_NW20.ts, main="Times Series: DC Violent NW Crimes in 2020")
+
+#Violent_SW
+
+DC_Violent_SW20 <- DC20 %>%
+  select(start_month, start_year, OFFENSE_CATEGORY,QUADRANT) %>%
+  filter(OFFENSE_CATEGORY == "VIOLENT") %>%
+  filter(QUADRANT == "SW") %>% 
+  filter(start_year >= "2020") %>%
+  group_by(start_month, start_year) %>%
+  summarise(count = n()) %>%
+  pivot_wider(names_from = start_month,
+              values_from = count)
+
+DC_Violent_SW20  <- DC_Violent_SW20  %>%
+  pivot_longer(cols = c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"),
+               names_to = "Months",
+               values_to = "number")
+
+DC_Violent_SW20  <-DC_Violent_SW20 %>%
+  select(number) %>%
+  drop_na(number)
+
+DC_Violent_SW20.ts <- ts(DC_Violent_SW20 , start=2020, freq=12)
+#plot(DC_Violent_SW20.ts, main="Times Series: DC Violent SW Crimes in 2020")
+
+
+```
+
+
+```{r, echo=FALSE, out.width = '60%', fig.align = 'center'}
+
+Violent_Prediction <- read.csv("Violent_Predictions.csv")
+Violent_Prediction <- Violent_Prediction %>%
+  slice(-c(12))
+
+comparing_violent20 <- cbind(Violent_Prediction,DC_Violent20)
+
+comparing_violent20 %>%
+  mutate(Month = c(1,2,3,4,5,6,7,8,9,10,11)) -> comparing_violent20
+
+
+Property_Prediction <- read.csv("Property_Predictions.csv")
+Property_Prediction <- Property_Prediction %>%
+  slice(-c(12))
+
+comparing_property20 <- cbind(Property_Prediction,DC_Property20)
+
+comparing_property20 %>%
+  mutate(Month = c(1,2,3,4,5,6,7,8,9,10,11)) -> comparing_property20
+
+
+prediction1 <- ggplot(comparing_violent20, aes(x=Month)) + 
+  geom_line(aes(y = fit), color = "darkred") + 
+  geom_line(aes(y = number), color="steelblue") +
+  labs(title ="Violent Crime 2020 in DC", x = "Month", y = "The number of Crime")
+
+prediction2 <- ggplot(comparing_property20, aes(x=Month)) + 
+  geom_line(aes(y = fit), color = "darkred") + 
+  geom_line(aes(y = number), color="steelblue") +
+  labs(title ="Property Crime 2020 in DC", x = "Month", y = "The number of Crime")
+
+
+grid.arrange(prediction1, prediction2, nrow = 1)
+
+```
+We predicted the number of violent, property crime incidents in 2020 by using the data from 2008 to 2019. The plots show the actual number of crime incidents that occurred in 2020 (blue line) compared to the number of crime incidents that our models predicted (red line). The violent crime plot shows that our prediction did not take into consideration some big events such as COVID-19 and the presidential and local elections. Therefore, our assumption is that in aggregate the model we created performed well in predicting the number of violent crime incidents in 2020. The property crime plot shows the number of actual and predicted property crime incidents in 2020. Our assumption is that the events of 2020 caused our model to over-predict compared to what happened. This could have been caused by the stay-at-home orders issued to limit the spread of COVID-19.
+
+
+## Discussion  
+
+Our EDA showed that district 3, the most crime-ridden area, also is the area in the epicenter of three universities (GW, Georgetown, and Howard). It is also the area that has some of the most popular bars and restaurants (U Street). This led us to hypothesize that universities and businesses that cater to nightlife events have a significant relation to crime within an area.  
+  
+In conclusion, there are many variables that contribute to the crime incidents reported. Our analysis provided insight on some factors – such as seasonality, location. We discovered that the number of violent crime incidents is declining while the number of property incidents is growing throughout our observation period (2008-2019). When it comes to seasonality, the frequency of violent crime incidents and property crime incidents increases in the warmer season and decreases in the colder season. The models we created performed well in predicting the number of violent crime incidents in 2020. However, some external factors may have caused an over-prediction in the number of property crime incidents in 2020.
+
+
+## References
+
+  Brownlee, J. (2020, April 12). *A Gentle Introduction to Exponential Smoothing for Time Series
+Forecasting in Python.* Retrieved December 05, 2020, from [link](https://machinelearningmastery.com/exponential-smoothing-for-time-series-forecasting-in-python/)    
+  
+  
+  Crace, M. (2020, October 28). *Neighborhood Info: What To Know When Buying A House. Rocket Mortgage by Quicken Loans.* [link](https://www.rocketmortgage.com/learn/neighborhood-info)  
+  
+  
+  Lerner, M. (2015, October 29). *Need help finding your ideal D.C. neighborhood? There’s an app for that.* Washington Post. [link](https://www.washingtonpost.com/realestate/technology-can-help-buyers-find- their-dream-home/2015/10/28/db338fa0-6ea2-11e5-aa5b-f78a98956699_story.html)   
+  
+  
+  Metropolitan Police Department. *DC Crime Cards.* [link](https://dcatlas.dcgis.dc.gov/crimecards/)  
+  
+  
+  Project for Public Spaces. (n.d.). *A to Z of Business Improvement Districts.* Retrieved December 05, 2020, from [link](https://www.pps.org/article/bid-2)
+  
+  
+  Brunt, P., Mawby, R., Hambly, Z. (2000, April 14). *Tourist victimisation and the fear of crime on holiday.* Retrieved December 07, 2020, from [link](https://www.sciencedirect.com/science/article/abs/pii/S0261517799000849)  
+  
+  
+  Cohn, E., Rotton, J. (2003, May 22). *Even criminals take a holiday: Instrumental and expressive crimes on major and minor holidays.* Retrieved December 07, 2020, from [link](https://www.sciencedirect.com/science/article/abs/pii/S0047235203000291)  
+  
+  
+  Mark Segraves, A. (2020, May 13). *DC Extends Stay-at-Home Order, School Closures Through May 15.* Retrieved December 07, 2020, from [link](https://www.nbcwashington.com/news/local/dc-extends-stay-at-home-order-through-may-15/2274714/)  
+    
+  Borger, J. (2020, June 01). *Fires light up Washington DC on third night of George Floyd protests.* Retrieved December 07, 2020, from [link](https://www.theguardian.com/us-news/2020/may/31/fires-light-up-washington-dc-on-third-night-of-george-floyd-protests)  
+  
+  
+*Police Service Area Details.* (n.d.). Retrieved December 07, 2020, from [link](https://dcgis.maps.arcgis.com/apps/InformationLookup/index.html?appid=9b33920cad0a4c0796e4567100c72fef)
